@@ -1,5 +1,6 @@
 const std = @import("std");
 const node = @import("node.zig");
+const DOM = @import("dom.zig");
 
 pub fn main() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -9,26 +10,21 @@ pub fn main() void {
         if (leaked) @panic("GPA has leaked!");
     }
 
-    var hello = buildHello(allocator);
-    defer node.destroyNode(hello);
+    var dom = DOM.createDOM(allocator);
+    var hello = buildHello(dom);
+    defer dom.destroyNode(hello);
 
-    node.prettyPrintNode(hello);
+    dom.prettyPrintNode(hello);
 
     std.log.info("Hey!", .{});
 }
 
-fn buildHello(allocator: std.mem.Allocator) node.Node {
-    var hello = node.createStringNode("Hello!");
-    var comment = node.createCommentNode("sleeepy zzzz");
+fn buildHello(dom: DOM.DOM) node.Node {
+    var hello = dom.createStringNode("Hello!");
+    var comment = dom.createCommentNode("sleeepy zzzz");
 
-    var divChildren = node.createEmptyNodeChildrenList(allocator);
-    divChildren.append(hello) catch {
-        @panic("Failed to append child to element!");
-    };
-    divChildren.append(comment) catch {
-        @panic("Failed to append child to element!");
-    };
-
-    var div = node.createElementNode("hello", allocator, divChildren);
+    var divChildren = node.createChildrenBuilder(dom.allocator).add(hello).add(comment).build();
+    var div = dom.createElementNode("div", divChildren);
     return div;
 }
+ 

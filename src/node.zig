@@ -1,10 +1,8 @@
 const std = @import("std");
 
-const NodeChildren = std.ArrayList(Node);
-const ElementAttributes = std.StringArrayHashMap(string);
-const Allocator = std.mem.Allocator;
-const debug = std.log.info;
-const string = []const u8;
+pub const NodeChildren = std.ArrayList(Node);
+pub const ElementAttributes = std.StringArrayHashMap([]const u8);
+pub const Allocator = std.mem.Allocator;
 
 pub const Node = struct {
     children: ?NodeChildren,
@@ -13,90 +11,28 @@ pub const Node = struct {
 
 pub const NodeTypeTag = enum { text, element, comment };
 pub const NodeType = union(NodeTypeTag) {
-    text: string,
+    text: []const u8,
     element: ElementData,
-    comment: string
+    comment: []const u8
 };
 
 pub const ElementData = struct {
-    tag_name: string,
+    tag_name: []const u8,
     attributes: ElementAttributes
 };
 
-pub fn createEmptyNodeChildrenList(allocator: Allocator) NodeChildren {
-    return NodeChildren.init(allocator);
-}
+pub const NodeChildrenBuilder = struct {
+    list: NodeChildren,
 
-pub fn createStringNode(text: string) Node {
-    return Node{
-        .children = null,
-        .value = NodeType{ .text = text }
-    };
-}
-
-pub fn createCommentNode(comment: string) Node {
-    return Node{
-        .children = null,
-        .value = NodeType{ .comment = comment }
-    };
-}
-
-pub fn createElementNode(tag: string, allocator: Allocator, children: ?NodeChildren) Node {
-    var attrs = ElementAttributes.init(allocator);
-    
-    return Node{
-        .children = if (children == null) createEmptyNodeChildrenList(allocator) else children,
-        .value = NodeType{
-            .element = ElementData{
-                .tag_name = tag,
-                .attributes = attrs
-            }
-        }
-    };
-}
-
-pub fn destroyNode(node: Node) void {
-    if (node.children != null) {
-        for (node.children.?.items) |child, i| {
-            debug("destroying node child {d}", .{i});
-            destroyNode(child);
-        }
-        node.children.?.deinit();
+    pub fn add(self: NodeChildrenBuilder, node: Node) NodeChildrenBuilder {
+        self.list.append(node) catch @panic("Couldn't add node to NodeChildrenBuilder!!");
+        return self;
     }
 
-    switch (node.value) {
-        .element => destroyElementNode(node),
-        else => {}
+    pub fn build(self: NodeChildrenBuilder) NodeChildren {
+        return self.list;
     }
+};
 
-    debug("node was successfully deinited", .{});
-}
-
-fn destroyElementNode (node: Node) void {
-    debug("destroying element node data", .{});
-    var element = node.value.element;
-
-    element.attributes.clearAndFree();
-}
-
-pub fn humanifyNode(node: Node) void {
-    switch (node.value) {
-        .element => std.debug.print("ElementNode ({s}) [", .{node.value.element.tag_name}),
-        .comment => std.debug.print("CommentNode = {s}", .{node.value.comment}),
-        .text => std.debug.print("TextNode = {s}", .{node.value.text}),
-        // else => return "UnknownNode"
-    }
-
-    std.debug.print("\n", .{});
-}
-
-pub fn prettyPrintNode(node: Node) void {
-    std.debug.print("{s}", .{" " ** 2});
-    humanifyNode(node);
-    if (node.children != null) {
-        for (node.children.?.items) |child| {
-           prettyPrintNode(child);
-        }
-        std.debug.print("  ]\n", .{});
-    }
-}
+pub fn createChildrenBuilder(allocator: Allocator) NodeChildrenBuilder {
+    return NodeChildrenBuilder{ .list = NodeChildren.init(allocator) };}
